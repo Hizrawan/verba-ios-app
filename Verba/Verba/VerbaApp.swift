@@ -10,6 +10,7 @@ import SwiftData
 
 @main
 struct VerbaApp: App {
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
@@ -23,10 +24,26 @@ struct VerbaApp: App {
         }
     }()
 
+    @State private var showSplash = true
     var body: some Scene {
         WindowGroup {
-            ContentView()
-        }
-        .modelContainer(sharedModelContainer)
+                    ZStack {
+                        ContentView()
+
+                        if showSplash {
+                            SplashScreenView()
+                                .transition(.opacity)
+                                .zIndex(1)
+                        }
+                    }
+                    .modelContainer(sharedModelContainer)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                            withAnimation {
+                                showSplash = false
+                            }
+                        }
+                    }
+                }
     }
 }
