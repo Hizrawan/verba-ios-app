@@ -10,8 +10,9 @@ struct LessonDetailView: View {
     @State private var currentPageIndex = 0
     @State private var selectedAnswers: [String: Int] = [:]
     @State private var checkedPages: Set<String> = []
-    @State private var pageResults: [String: Bool] = [:]
+    @State private var pageEvaluations: [String: AnswerEvaluation] = [:]
     @State private var showCompletionAlert = false
+    @State private var expGained = 0
 
     var body: some View {
         VStack(spacing: 0) {
@@ -37,7 +38,7 @@ struct LessonDetailView: View {
         .alert("Lesson Selesai", isPresented: $showCompletionAlert) {
             Button("Kembali") { dismiss() }
         } message: {
-            Text("Kamu menyelesaikan lesson dengan \(wrongAnswersCount) jawaban salah.")
+            Text("Kamu menyelesaikan lesson dengan \(wrongAnswersCount) jawaban salah dan mendapat +\(expGained) EXP.")
         }
     }
 
@@ -100,7 +101,7 @@ struct LessonDetailView: View {
                     correctOptionId: correctOptionId,
                     selectedAnswers: $selectedAnswers,
                     checkedPages: $checkedPages,
-                    pageResults: $pageResults
+                    pageEvaluations: $pageEvaluations
                 )
                 .lessonContentStyle
             case let .multipleChoice(pageId, question, index, total):
@@ -111,7 +112,7 @@ struct LessonDetailView: View {
                     total: total,
                     selectedAnswers: $selectedAnswers,
                     checkedPages: $checkedPages,
-                    pageResults: $pageResults
+                    pageEvaluations: $pageEvaluations
                 )
                 .lessonContentStyle
             }
@@ -228,7 +229,7 @@ struct LessonDetailView: View {
     }
 
     private var wrongAnswersCount: Int {
-        let wrongPages = pageResults.values.filter { !$0 }.count
+        let wrongPages = pageEvaluations.values.filter { !$0.isCorrect }.count
         return wrongPages
     }
 
@@ -244,11 +245,29 @@ struct LessonDetailView: View {
     }
 
     private func completeLesson() {
-        session.completeLesson(
+        let wrongItems = pageEvaluations
+            .values
+            .filter { !$0.isCorrect }
+            .map { evaluation in
+                WrongAnswerItem(
+                    id: "\(lesson.id)_\(evaluation.pageId)",
+                    lessonId: lesson.id,
+                    courseId: lesson.course_id,
+                    lessonTitle: lesson.title,
+                    prompt: evaluation.prompt,
+                    userAnswer: evaluation.userAnswer,
+                    correctAnswer: evaluation.correctAnswer,
+                    recordedAt: Date()
+                )
+            }
+
+        expGained = session.completeLesson(
             lessonId: lesson.id,
             courseId: lesson.course_id,
+            lessonTitle: lesson.title,
             wrongAnswers: wrongAnswersCount,
-            totalQuestions: totalQuestionCount
+            totalQuestions: totalQuestionCount,
+            wrongItems: wrongItems
         )
         showCompletionAlert = true
     }
@@ -318,7 +337,7 @@ private struct MatchingPageView: View {
     let correctOptionId: Int
     @Binding var selectedAnswers: [String: Int]
     @Binding var checkedPages: Set<String>
-    @Binding var pageResults: [String: Bool]
+    @Binding var pageEvaluations: [String: AnswerEvaluation]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -371,7 +390,15 @@ private struct MatchingPageView: View {
     private func checkAnswer() {
         guard let selectedId = selectedAnswers[pageId] else { return }
         checkedPages.insert(pageId)
-        pageResults[pageId] = selectedId == correctOptionId
+        let selectedText = options.first(where: { $0.id == selectedId })?.text ?? "-"
+        let correctText = options.first(where: { $0.id == correctOptionId })?.text ?? "-"
+        pageEvaluations[pageId] = AnswerEvaluation(
+            pageId: pageId,
+            isCorrect: selectedId == correctOptionId,
+            prompt: "Arti dari '\(prompt)'",
+            userAnswer: selectedText,
+            correctAnswer: correctText
+        )
     }
 }
 
@@ -382,7 +409,7 @@ private struct MultipleChoicePageView: View {
     let total: Int
     @Binding var selectedAnswers: [String: Int]
     @Binding var checkedPages: Set<String>
-    @Binding var pageResults: [String: Bool]
+    @Binding var pageEvaluations: [String: AnswerEvaluation]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -443,7 +470,25 @@ private struct MultipleChoicePageView: View {
     private func checkAnswer() {
         guard let selectedId = selectedAnswers[pageId] else { return }
         checkedPages.insert(pageId)
-        pageResults[pageId] = selectedId == question.correctOptionId
+        guard let correctOptionId = question.correctOptionId else {
+            pageEvaluations[pageId] = AnswerEvaluation(
+                pageId: pageId,
+                isCorrect: true,
+                prompt: question.prompt,
+                userAnswer: question.options.first(where: { $0.id == selectedId })?.text ?? "-",
+                correctAnswer: "-"
+            )
+            return
+        }
+        let selectedText = question.options.first(where: { $0.id == selectedId })?.text ?? "-"
+        let correctText = question.options.first(where: { $0.id == correctOptionId })?.text ?? "-"
+        pageEvaluations[pageId] = AnswerEvaluation(
+            pageId: pageId,
+            isCorrect: selectedId == correctOptionId,
+            prompt: question.prompt,
+            userAnswer: selectedText,
+            correctAnswer: correctText
+        )
     }
 }
 
@@ -465,4 +510,12 @@ private extension String {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
+}
+
+private struct AnswerEvaluation {
+    let pageId: String
+    let isCorrect: Bool
+    let prompt: String
+    let userAnswer: String
+    let correctAnswer: String
 }

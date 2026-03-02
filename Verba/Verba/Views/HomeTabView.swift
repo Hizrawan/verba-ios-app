@@ -9,6 +9,7 @@ import SwiftUI
 struct HomeTabView: View {
     @ObservedObject var viewModel: CourseListViewModel
     @EnvironmentObject private var session: SessionManager
+    @State private var showWrongAnswersSheet = false
 
     var body: some View {
         NavigationStack {
@@ -65,12 +66,40 @@ struct HomeTabView: View {
                             )
                         }
 
-                        SummaryCard(
-                            title: "Total Jawaban Salah",
-                            value: "\(session.totalWrongAnswers())",
-                            icon: "exclamationmark.triangle.fill",
-                            tint: .orange
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Level \(session.level)")
+                                    .font(.headline)
+                                Spacer()
+                                Text("\(session.expInCurrentLevel)/\(session.expPerLevel) EXP")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                            }
+                            ProgressView(value: Double(session.expInCurrentLevel), total: Double(session.expPerLevel))
+                                .tint(.blue)
+                            Text("Total EXP: \(session.totalExp)")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(.white.opacity(0.24), lineWidth: 1)
                         )
+
+                        Button {
+                            showWrongAnswersSheet = true
+                        } label: {
+                            SummaryCard(
+                                title: "Total Jawaban Salah",
+                                value: "\(session.totalWrongAnswers())",
+                                icon: "exclamationmark.triangle.fill",
+                                tint: .orange
+                            )
+                        }
+                        .buttonStyle(.plain)
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {
@@ -95,6 +124,51 @@ struct HomeTabView: View {
             .task {
                 guard viewModel.courses.isEmpty else { return }
                 await viewModel.loadCourses()
+            }
+            .sheet(isPresented: $showWrongAnswersSheet) {
+                WrongAnswersSheetView()
+                    .environmentObject(session)
+            }
+        }
+    }
+}
+
+private struct WrongAnswersSheetView: View {
+    @EnvironmentObject private var session: SessionManager
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if session.wrongAnswerItems().isEmpty {
+                    ContentUnavailableView(
+                        "Belum Ada Jawaban Salah",
+                        systemImage: "checkmark.shield",
+                        description: Text("Semua jawabanmu benar sejauh ini. Mantap!")
+                    )
+                } else {
+                    List(session.wrongAnswerItems()) { item in
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(item.lessonTitle)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            Text(item.prompt)
+                                .font(.headline)
+                            Text("Jawabanmu: \(item.userAnswer)")
+                                .foregroundStyle(.orange)
+                            Text("Jawaban benar: \(item.correctAnswer)")
+                                .foregroundStyle(.green)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .navigationTitle("Review Jawaban Salah")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Tutup") { dismiss() }
+                }
             }
         }
     }
