@@ -2,7 +2,7 @@
 //  VerbaApp.swift
 //  Verba
 //
-//  Created by macminim1 on 2026/3/2.
+//  Created by Oka on 2026/3/2.
 //
 
 import SwiftUI
