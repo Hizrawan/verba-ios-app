@@ -8,6 +8,7 @@ import SwiftUI
 
 struct HomeTabView: View {
     @ObservedObject var viewModel: CourseListViewModel
+    @EnvironmentObject private var session: SessionManager
 
     var body: some View {
         NavigationStack {
@@ -57,12 +58,19 @@ struct HomeTabView: View {
                                 tint: .indigo
                             )
                             SummaryCard(
-                                title: "Status Data",
-                                value: viewModel.isLoading ? "Loading" : "Ready",
-                                icon: "bolt.fill",
+                                title: "Lesson Selesai",
+                                value: "\(session.lessonCompletions.count)",
+                                icon: "checkmark.seal.fill",
                                 tint: .green
                             )
                         }
+
+                        SummaryCard(
+                            title: "Total Jawaban Salah",
+                            value: "\(session.totalWrongAnswers())",
+                            icon: "exclamationmark.triangle.fill",
+                            tint: .orange
+                        )
 
                         VStack(alignment: .leading, spacing: 10) {
                             HStack {

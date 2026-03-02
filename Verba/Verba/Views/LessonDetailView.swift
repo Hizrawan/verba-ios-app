@@ -5,14 +5,24 @@ struct LessonDetailView: View {
     let lesson: Lesson
     let lessonNumber: Int
     let totalLessons: Int
+    @EnvironmentObject private var session: SessionManager
+    @Environment(\.dismiss) private var dismiss
+    @State private var currentPageIndex = 0
+    @State private var selectedAnswers: [String: Int] = [:]
+    @State private var checkedPages: Set<String> = []
+    @State private var pageResults: [String: Bool] = [:]
+    @State private var showCompletionAlert = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 18) {
-                headerCard
-                contentCard
+        VStack(spacing: 0) {
+            ScrollView {
+                VStack(spacing: 18) {
+                    headerCard
+                    currentPageView
+                }
+                .padding()
             }
-            .padding()
+            footerNavigation
         }
         .background(
             LinearGradient(
@@ -24,6 +34,11 @@ struct LessonDetailView: View {
         )
         .navigationTitle("Lesson \(lessonNumber)")
         .navigationBarTitleDisplayMode(.inline)
+        .alert("Lesson Selesai", isPresented: $showCompletionAlert) {
+            Button("Kembali") { dismiss() }
+        } message: {
+            Text("Kamu menyelesaikan lesson dengan \(wrongAnswersCount) jawaban salah.")
+        }
     }
 
     private var headerCard: some View {
@@ -52,6 +67,14 @@ struct LessonDetailView: View {
             Text("\(lesson.type.title) • Stage \(lessonNumber)/\(totalLessons)")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
+
+            ProgressView(value: Double(currentPageIndex + 1), total: Double(max(pages.count, 1)))
+                .tint(.green)
+                .padding(.top, 4)
+
+            Text("Halaman \(currentPageIndex + 1) dari \(max(pages.count, 1))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 22)
@@ -60,180 +83,367 @@ struct LessonDetailView: View {
     }
 
     @ViewBuilder
-    private var contentCard: some View {
+    private var currentPageView: some View {
+        if pages.indices.contains(currentPageIndex) {
+            switch pages[currentPageIndex] {
+            case let .material(text):
+                MaterialPageView(text: text)
+                    .lessonContentStyle
+            case let .flashcard(card, index, total):
+                FlashcardPageView(card: card, index: index, total: total)
+                    .lessonContentStyle
+            case let .flashcardMatching(pageId, prompt, options, correctOptionId):
+                MatchingPageView(
+                    pageId: pageId,
+                    prompt: prompt,
+                    options: options,
+                    correctOptionId: correctOptionId,
+                    selectedAnswers: $selectedAnswers,
+                    checkedPages: $checkedPages,
+                    pageResults: $pageResults
+                )
+                .lessonContentStyle
+            case let .multipleChoice(pageId, question, index, total):
+                MultipleChoicePageView(
+                    pageId: pageId,
+                    question: question,
+                    index: index,
+                    total: total,
+                    selectedAnswers: $selectedAnswers,
+                    checkedPages: $checkedPages,
+                    pageResults: $pageResults
+                )
+                .lessonContentStyle
+            }
+        } else {
+            Text("Konten lesson tidak tersedia.")
+                .foregroundStyle(.secondary)
+                .lessonContentStyle
+        }
+    }
+
+    private var footerNavigation: some View {
+        HStack(spacing: 12) {
+            Button("Prev") {
+                currentPageIndex = max(0, currentPageIndex - 1)
+            }
+            .buttonStyle(.bordered)
+            .disabled(currentPageIndex == 0)
+
+            Button(isLastPage ? "Selesai" : "Next") {
+                if isLastPage {
+                    completeLesson()
+                } else {
+                    currentPageIndex = min(pages.count - 1, currentPageIndex + 1)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!canMoveNext)
+        }
+        .padding(.horizontal)
+        .padding(.top, 10)
+        .padding(.bottom, 18)
+        .background(.ultraThinMaterial)
+    }
+
+    private var pages: [LessonPage] {
         switch lesson.type {
         case .material:
-            VStack(alignment: .leading, spacing: 12) {
-                Label("Materi", systemImage: "book.fill")
-                    .font(.headline)
-                Text(lesson.content?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-                     ? (lesson.content ?? "")
-                     : "Materi belum tersedia.")
-                    .font(.body)
-                    .foregroundStyle(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .lessonContentStyle
-
+            return [.material(text: lesson.content?.trimmedNonEmpty ?? "Materi belum tersedia.")]
         case .flashcard:
-            FlashcardDeckView(cards: lesson.flashcards ?? [])
-                .lessonContentStyle
-
+            let cards = lesson.flashcards ?? []
+            var allPages: [LessonPage] = cards.enumerated().map { index, card in
+                .flashcard(card: card, index: index + 1, total: cards.count)
+            }
+            if let matching = makeMatchingPage(from: cards) {
+                allPages.append(matching)
+            }
+            if allPages.isEmpty {
+                allPages = [.material(text: "Flashcard belum tersedia.")]
+            }
+            return allPages
         case .multipleChoice:
-            MultipleChoiceLessonView(
-                questions: lesson.multipleChoiceQuestions
-            )
-            .lessonContentStyle
-        }
-    }
-}
-
-private struct FlashcardDeckView: View {
-    let cards: [FlashcardItem]
-    @State private var selectedIndex = 0
-    @State private var flippedCardIDs: Set<Int> = []
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Flashcard", systemImage: "rectangle.on.rectangle")
-                .font(.headline)
-
-            if cards.isEmpty {
-                Text("Flashcard belum tersedia.")
-                    .foregroundStyle(.secondary)
-            } else {
-                TabView(selection: $selectedIndex) {
-                    ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
-                        flashcard(card)
-                            .tag(index)
-                    }
-                }
-                .frame(height: 230)
-                .tabViewStyle(.page(indexDisplayMode: .always))
-
-                Text("Tap kartu untuk flip.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func flashcard(_ card: FlashcardItem) -> some View {
-        let isFlipped = flippedCardIDs.contains(card.id)
-        VStack(spacing: 12) {
-            Text(isFlipped ? card.back : card.front)
-                .font(.title3.weight(.bold))
-                .multilineTextAlignment(.center)
-                .foregroundStyle(isFlipped ? .green : .primary)
-                .padding()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(isFlipped ? Color.green.opacity(0.14) : Color.blue.opacity(0.12))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(isFlipped ? Color.green.opacity(0.35) : Color.blue.opacity(0.28), lineWidth: 1)
-        )
-        .onTapGesture {
-            if isFlipped {
-                flippedCardIDs.remove(card.id)
-            } else {
-                flippedCardIDs.insert(card.id)
-            }
-        }
-    }
-}
-
-private struct MultipleChoiceLessonView: View {
-    let questions: [QuizQuestion]
-
-    @State private var selectedOptions: [Int: Int] = [:]
-    @State private var checkedQuestions: Set<Int> = []
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Multiple Choice", systemImage: "checkmark.circle.fill")
-                .font(.headline)
-
+            let questions = lesson.multipleChoiceQuestions
             if questions.isEmpty {
-                Text("Pertanyaan belum tersedia.")
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(Array(questions.enumerated()), id: \.element.id) { index, question in
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Soal \(index + 1)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-
-                        Text(question.prompt)
-                            .font(.title3.weight(.semibold))
-
-                        ForEach(question.options) { option in
-                            Button {
-                                selectedOptions[question.id] = option.id
-                            } label: {
-                                HStack {
-                                    Text(option.text)
-                                        .foregroundStyle(.primary)
-                                    Spacer()
-                                    if selectedOptions[question.id] == option.id {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.blue)
-                                    }
-                                }
-                                .padding(.vertical, 12)
-                                .padding(.horizontal, 14)
-                                .background(
-                                    optionBackground(
-                                        questionId: question.id,
-                                        optionId: option.id
-                                    ),
-                                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-
-                        Button("Cek Jawaban Soal \(index + 1)") {
-                            checkedQuestions.insert(question.id)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(selectedOptions[question.id] == nil || question.options.isEmpty)
-
-                        if checkedQuestions.contains(question.id),
-                           let selectedOptionId = selectedOptions[question.id],
-                           let correctOptionId = question.correctOptionId {
-                            let isCorrect = selectedOptionId == correctOptionId
-                            Text(isCorrect ? "Benar! 🎉" : "Belum tepat, coba lagi ya.")
-                                .font(.headline)
-                                .foregroundStyle(isCorrect ? .green : .orange)
-
-                            if let explanation = question.explanation,
-                               !explanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                                Text(explanation)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .padding(.vertical, 6)
-
-                    if index < questions.count - 1 {
-                        Divider()
-                            .padding(.vertical, 4)
-                    }
-                }
+                return [.material(text: "Pertanyaan belum tersedia.")]
+            }
+            return questions.enumerated().map { index, question in
+                .multipleChoice(
+                    pageId: "mc_\(question.id)",
+                    question: question,
+                    index: index + 1,
+                    total: questions.count
+                )
             }
         }
     }
 
-    private func optionBackground(questionId: Int, optionId: Int) -> Color {
-        guard selectedOptions[questionId] == optionId else {
+    private func makeMatchingPage(from cards: [FlashcardItem]) -> LessonPage? {
+        guard cards.count >= 2 else { return nil }
+        let sourceCard = cards[0]
+        let optionCards = Array(cards.prefix(min(cards.count, 4)))
+        let options = optionCards.enumerated().map { index, item in
+            ChoiceItem(id: sourceCard.id * 10 + index, text: item.back)
+        }
+        let correctIndex = optionCards.firstIndex(where: { $0.id == sourceCard.id }) ?? 0
+        let correctOptionId = sourceCard.id * 10 + correctIndex
+        return .flashcardMatching(
+            pageId: "match_\(sourceCard.id)",
+            prompt: sourceCard.front,
+            options: options,
+            correctOptionId: correctOptionId
+        )
+    }
+
+    private var currentPageNeedsCheck: Bool {
+        guard pages.indices.contains(currentPageIndex) else { return false }
+        switch pages[currentPageIndex] {
+        case .flashcardMatching, .multipleChoice:
+            return true
+        case .material, .flashcard:
+            return false
+        }
+    }
+
+    private var currentPageId: String? {
+        guard pages.indices.contains(currentPageIndex) else { return nil }
+        switch pages[currentPageIndex] {
+        case let .flashcardMatching(pageId, _, _, _):
+            return pageId
+        case let .multipleChoice(pageId, _, _, _):
+            return pageId
+        case .material, .flashcard:
+            return nil
+        }
+    }
+
+    private var canMoveNext: Bool {
+        if !currentPageNeedsCheck { return true }
+        guard let pageId = currentPageId else { return false }
+        return checkedPages.contains(pageId)
+    }
+
+    private var isLastPage: Bool {
+        currentPageIndex == max(0, pages.count - 1)
+    }
+
+    private var wrongAnswersCount: Int {
+        let wrongPages = pageResults.values.filter { !$0 }.count
+        return wrongPages
+    }
+
+    private var totalQuestionCount: Int {
+        pages.reduce(0) { partialResult, page in
+            switch page {
+            case .flashcardMatching, .multipleChoice:
+                return partialResult + 1
+            case .material, .flashcard:
+                return partialResult
+            }
+        }
+    }
+
+    private func completeLesson() {
+        session.completeLesson(
+            lessonId: lesson.id,
+            courseId: lesson.course_id,
+            wrongAnswers: wrongAnswersCount,
+            totalQuestions: totalQuestionCount
+        )
+        showCompletionAlert = true
+    }
+}
+
+private enum LessonPage {
+    case material(text: String)
+    case flashcard(card: FlashcardItem, index: Int, total: Int)
+    case flashcardMatching(pageId: String, prompt: String, options: [ChoiceItem], correctOptionId: Int)
+    case multipleChoice(pageId: String, question: QuizQuestion, index: Int, total: Int)
+}
+
+private struct MaterialPageView: View {
+    let text: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Materi", systemImage: "book.fill")
+                .font(.headline)
+            Text(text)
+                .font(.body)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+private struct FlashcardPageView: View {
+    let card: FlashcardItem
+    let index: Int
+    let total: Int
+    @State private var isFlipped = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Flashcard \(index)/\(total)", systemImage: "rectangle.on.rectangle")
+                .font(.headline)
+            Text("Tap kartu untuk flip.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
+            VStack(spacing: 10) {
+                Text(isFlipped ? card.back : card.front)
+                    .font(.title3.weight(.bold))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(isFlipped ? .green : .primary)
+                    .padding()
+            }
+            .frame(maxWidth: .infinity, minHeight: 220)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(isFlipped ? Color.green.opacity(0.14) : Color.blue.opacity(0.12))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(isFlipped ? Color.green.opacity(0.35) : Color.blue.opacity(0.28), lineWidth: 1)
+            )
+            .onTapGesture { isFlipped.toggle() }
+        }
+    }
+}
+
+private struct MatchingPageView: View {
+    let pageId: String
+    let prompt: String
+    let options: [ChoiceItem]
+    let correctOptionId: Int
+    @Binding var selectedAnswers: [String: Int]
+    @Binding var checkedPages: Set<String>
+    @Binding var pageResults: [String: Bool]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Cocokkan Arti", systemImage: "arrow.left.arrow.right.circle.fill")
+                .font(.headline)
+            Text("Arti dari: **\(prompt)**")
+                .font(.title3.weight(.semibold))
+
+            ForEach(options) { option in
+                Button {
+                    selectedAnswers[pageId] = option.id
+                } label: {
+                    HStack {
+                        Text(option.text)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if selectedAnswers[pageId] == option.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .background(optionBackground(for: option.id), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button("Cek Jawaban") { checkAnswer() }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedAnswers[pageId] == nil || options.isEmpty)
+
+            if checkedPages.contains(pageId),
+               let selectedId = selectedAnswers[pageId] {
+                let isCorrect = selectedId == correctOptionId
+                Text(isCorrect ? "Benar! 🎉" : "Belum tepat, coba lagi ya.")
+                    .font(.headline)
+                    .foregroundStyle(isCorrect ? .green : .orange)
+            }
+        }
+    }
+
+    private func optionBackground(for optionId: Int) -> Color {
+        guard selectedAnswers[pageId] == optionId else {
             return Color(.secondarySystemBackground)
         }
         return Color.blue.opacity(0.14)
+    }
+
+    private func checkAnswer() {
+        guard let selectedId = selectedAnswers[pageId] else { return }
+        checkedPages.insert(pageId)
+        pageResults[pageId] = selectedId == correctOptionId
+    }
+}
+
+private struct MultipleChoicePageView: View {
+    let pageId: String
+    let question: QuizQuestion
+    let index: Int
+    let total: Int
+    @Binding var selectedAnswers: [String: Int]
+    @Binding var checkedPages: Set<String>
+    @Binding var pageResults: [String: Bool]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("Multiple Choice \(index)/\(total)", systemImage: "checkmark.circle.fill")
+                .font(.headline)
+
+            Text(question.prompt)
+                .font(.title3.weight(.semibold))
+
+            ForEach(question.options) { option in
+                Button {
+                    selectedAnswers[pageId] = option.id
+                } label: {
+                    HStack {
+                        Text(option.text)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if selectedAnswers[pageId] == option.id {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .background(optionBackground(for: option.id), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button("Cek Jawaban") { checkAnswer() }
+                .buttonStyle(.borderedProminent)
+                .disabled(selectedAnswers[pageId] == nil || question.options.isEmpty)
+
+            if checkedPages.contains(pageId),
+               let selectedId = selectedAnswers[pageId],
+               let correctOptionId = question.correctOptionId {
+                let isCorrect = selectedId == correctOptionId
+                Text(isCorrect ? "Benar! 🎉" : "Belum tepat, coba lagi ya.")
+                    .font(.headline)
+                    .foregroundStyle(isCorrect ? .green : .orange)
+
+                if let explanation = question.explanation,
+                   !explanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(explanation)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func optionBackground(for optionId: Int) -> Color {
+        guard selectedAnswers[pageId] == optionId else {
+            return Color(.secondarySystemBackground)
+        }
+        return Color.blue.opacity(0.14)
+    }
+
+    private func checkAnswer() {
+        guard let selectedId = selectedAnswers[pageId] else { return }
+        checkedPages.insert(pageId)
+        pageResults[pageId] = selectedId == question.correctOptionId
     }
 }
 
@@ -247,5 +457,12 @@ private extension View {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(.white.opacity(0.22), lineWidth: 1)
             )
+    }
+}
+
+private extension String {
+    var trimmedNonEmpty: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

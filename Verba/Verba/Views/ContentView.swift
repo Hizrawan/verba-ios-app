@@ -54,6 +54,7 @@ struct ContentView: View {
                 .tabItem { Label("Profile", systemImage: "person.crop.circle.fill") }
                 .tag(2)
         }
+        .environmentObject(session)
         .sheet(isPresented: $showAddSheet) {
             CourseFormView(mode: .add) { course in
                 guard let course else { return }

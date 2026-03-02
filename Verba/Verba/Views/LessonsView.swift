@@ -10,6 +10,7 @@ import SwiftUI
 struct LessonsView: View {
     let course: Course
     @StateObject private var viewModel = LessonListViewModel()
+    @EnvironmentObject private var session: SessionManager
 
     var body: some View {
         ZStack {
@@ -31,14 +32,19 @@ struct LessonsView: View {
                     )
                 } else {
                     ScrollView {
-                        LazyVStack(spacing: 0) {
+                        VStack(spacing: 14) {
+                            progressCard
+
+                            LazyVStack(spacing: 0) {
                             ForEach(Array(viewModel.lessons.enumerated()), id: \.element.id) { index, lesson in
                                 StageLessonNodeView(
                                     lesson: lesson,
                                     lessonNumber: index + 1,
-                                    totalLessons: viewModel.lessons.count
+                                    totalLessons: viewModel.lessons.count,
+                                    isCompleted: session.isLessonCompleted(lesson.id)
                                 )
                             }
+                        }
                         }
                         .padding()
                     }
@@ -62,12 +68,44 @@ struct LessonsView: View {
             Text(viewModel.errorMessage ?? "Terjadi kesalahan.")
         }
     }
+
+    private var progressCard: some View {
+        let completed = session.completedLessonsCount(for: course.id)
+        let total = max(viewModel.lessons.count, 1)
+        let progress = Double(completed) / Double(total)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Progress Course")
+                    .font(.headline)
+                Spacer()
+                Text("\(completed)/\(viewModel.lessons.count) lesson")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            ProgressView(value: progress)
+                .tint(.green)
+
+            Text("Total jawaban salah: \(session.totalWrongAnswers(for: course.id))")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(.white.opacity(0.22), lineWidth: 1)
+        )
+    }
 }
 
 private struct StageLessonNodeView: View {
     let lesson: Lesson
     let lessonNumber: Int
     let totalLessons: Int
+    let isCompleted: Bool
 
     private var xOffset: CGFloat {
         lessonNumber.isMultiple(of: 2) ? 56 : -56
@@ -87,7 +125,7 @@ private struct StageLessonNodeView: View {
                         Circle()
                             .fill(
                                 LinearGradient(
-                                    colors: [Color.green, Color.blue],
+                                    colors: isCompleted ? [Color.green, Color.mint] : [Color.green, Color.blue],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 )
@@ -95,7 +133,7 @@ private struct StageLessonNodeView: View {
                             .frame(width: 66, height: 66)
                             .shadow(color: .green.opacity(0.3), radius: 10, x: 0, y: 5)
 
-                        Image(systemName: lesson.type.iconName)
+                        Image(systemName: isCompleted ? "checkmark" : lesson.type.iconName)
                             .font(.title3.weight(.bold))
                             .foregroundStyle(.white)
                     }
@@ -111,8 +149,8 @@ private struct StageLessonNodeView: View {
                             .font(.caption.weight(.semibold))
                             .padding(.horizontal, 9)
                             .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.12), in: Capsule())
-                            .foregroundStyle(.blue)
+                            .background((isCompleted ? Color.green : Color.blue).opacity(0.12), in: Capsule())
+                            .foregroundStyle(isCompleted ? .green : .blue)
                     }
                     Spacer()
                 }
