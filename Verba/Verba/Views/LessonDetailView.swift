@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 struct LessonDetailView: View {
@@ -232,17 +233,6 @@ private struct MultipleChoiceLessonView: View {
         guard selectedOptions[questionId] == optionId else {
             return Color(.secondarySystemBackground)
         }
-        return Color.blue.opacity(0.14)
-    }
-}
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-    }
-
-    private func optionBackground(for optionId: Int) -> Color {
-        guard selectedOptionId == optionId else { return Color(.secondarySystemBackground) }
         return Color.blue.opacity(0.14)
     }
 }

@@ -9,7 +9,7 @@
 import Foundation
 
 final class APIService {
-    private let baseURL = URL(string: "https://verba.api.hizrawan.com/api")!
+    private let baseURL = URL(string: "https://staging.verba.api.hizrawan.com/api")!
     private let session: URLSession
 
     init(session: URLSession = .shared) {
