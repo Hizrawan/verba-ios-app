@@ -23,3 +23,13 @@ struct CourseUpdateRequest: Codable {
     let title: String
     let description: String?
 }
+
+struct Lesson: Codable, Identifiable, Equatable {
+    let id: Int
+    let course_id: Int
+    let title: String
+    let content: String?
+    let order: Int?
+    let createdAt: String?
+    let updatedAt: String?
+}

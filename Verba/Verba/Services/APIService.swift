@@ -23,6 +23,13 @@ final class APIService {
         return try decode([Course].self, from: data)
     }
 
+    func fetchLessons(courseId: Int) async throws -> [Lesson] {
+        let request = URLRequest(url: baseURL.appending(path: "lessons/course/\(courseId)"))
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode([Lesson].self, from: data)
+    }
+
     func createCourse(title: String, description: String?, bearerToken: String) async throws -> Course {
         let cleanedToken = bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedToken.isEmpty else { throw APIError.missingBearerToken }
@@ -86,6 +93,7 @@ final class APIService {
             throw APIError.decoding(error)
         }
     }
+
 }
 
 enum APIError: LocalizedError {
