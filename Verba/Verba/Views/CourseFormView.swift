@@ -3,7 +3,6 @@
 //  Verba
 //
 //  Created by Oka on 2026/3/2.
-
 import SwiftUI
 
 struct CourseFormView: View {
@@ -22,14 +21,41 @@ struct CourseFormView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Course") {
-                    TextField("Judul course", text: $title)
-                    TextEditor(text: $descriptionText)
-                        .frame(minHeight: 120)
+            ZStack {
+                LinearGradient(
+                    colors: [Color(.systemBlue).opacity(0.08), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 14) {
+                        HStack(spacing: 10) {
+                            Image(systemName: "textformat")
+                                .foregroundStyle(.secondary)
+                            TextField("Judul course", text: $title)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 14)
+                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Deskripsi")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            TextEditor(text: $descriptionText)
+                                .frame(minHeight: 130)
+                                .scrollContentBackground(.hidden)
+                                .padding(8)
+                                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+                        }
+                    }
+                    .padding()
                 }
             }
             .navigationTitle(modeTitle)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Batal") {

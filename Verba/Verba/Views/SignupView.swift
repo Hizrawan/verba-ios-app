@@ -4,7 +4,6 @@
 //
 //  Created by Oka on 2026/3/2.
 //
-
 import SwiftUI
 
 struct SignupView: View {
@@ -15,6 +14,8 @@ struct SignupView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
+    @State private var showPassword = false
+    @State private var showConfirmPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
 
@@ -22,74 +23,91 @@ struct SignupView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Buat Akun")
-                        .font(.largeTitle.bold())
-                    Text("Daftar untuk mulai belajar Bahasa Indonesia.")
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            ZStack {
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.07, green: 0.13, blue: 0.36),
+                        Color(red: 0.11, green: 0.33, blue: 0.64),
+                        Color(red: 0.15, green: 0.57, blue: 0.84)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
 
-                VStack(spacing: 14) {
-                    TextField("Email", text: $email)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
-                        .autocorrectionDisabled()
-                        .padding()
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-
-                    SecureField("Password (min. 6 karakter)", text: $password)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding()
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-
-                    SecureField("Konfirmasi Password", text: $confirmPassword)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .padding()
-                        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-                }
-
-                Button {
-                    Task {
-                        await signup()
-                    }
-                } label: {
-                    HStack {
-                        if isLoading {
-                            ProgressView()
-                                .tint(.white)
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 22) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Buat Akun")
+                                .font(.system(size: 34, weight: .bold))
+                                .foregroundStyle(.white)
+                            Text("Daftar untuk mulai belajar Bahasa Indonesia.")
+                                .foregroundStyle(.white.opacity(0.9))
                         }
-                        Text(isLoading ? "Mendaftar..." : "Signup")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .foregroundStyle(.white)
-                    .background(Color.blue, in: RoundedRectangle(cornerRadius: 12))
-                }
-                .disabled(isSignupDisabled)
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                }
 
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Signup")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Batal") {
-                        dismiss()
+                        VStack(spacing: 14) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "envelope")
+                                    .foregroundStyle(.secondary)
+                                TextField("Email", text: $email)
+                                    .textInputAutocapitalization(.never)
+                                    .keyboardType(.emailAddress)
+                                    .autocorrectionDisabled()
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 14)
+                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
+
+                            passwordField(
+                                title: "Password (min. 6 karakter)",
+                                text: $password,
+                                showText: $showPassword
+                            )
+
+                            passwordField(
+                                title: "Konfirmasi Password",
+                                text: $confirmPassword,
+                                showText: $showConfirmPassword
+                            )
+
+                            Button {
+                                Task {
+                                    await signup()
+                                }
+                            } label: {
+                                HStack(spacing: 10) {
+                                    if isLoading {
+                                        ProgressView()
+                                            .tint(.white)
+                                    }
+                                    Text(isLoading ? "Mendaftar..." : "Signup")
+                                        .fontWeight(.semibold)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 15)
+                                .foregroundStyle(.white)
+                                .background(
+                                    LinearGradient(colors: [.blue, .cyan], startPoint: .leading, endPoint: .trailing),
+                                    in: RoundedRectangle(cornerRadius: 14)
+                                )
+                            }
+                            .disabled(isSignupDisabled)
+
+                            if let errorMessage {
+                                Text(errorMessage)
+                                    .font(.footnote)
+                                    .foregroundStyle(.red)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .padding(20)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24))
                     }
+                    .padding(20)
                 }
             }
+            .navigationBarHidden(true)
         }
     }
 
@@ -119,5 +137,32 @@ struct SignupView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func passwordField(title: String, text: Binding<String>, showText: Binding<Bool>) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "lock")
+                .foregroundStyle(.secondary)
+            Group {
+                if showText.wrappedValue {
+                    TextField(title, text: text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } else {
+                    SecureField(title, text: text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+            }
+            Button {
+                showText.wrappedValue.toggle()
+            } label: {
+                Image(systemName: showText.wrappedValue ? "eye.slash" : "eye")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
     }
 }

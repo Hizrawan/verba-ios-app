@@ -12,35 +12,60 @@ struct ProfileTabView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Akun") {
-                    HStack(spacing: 12) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundStyle(.blue)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(session.email ?? "Pengguna")
-                                .font(.headline)
-                            Text("Belajar Bahasa Indonesia")
+            ZStack {
+                LinearGradient(
+                    colors: [Color(.systemTeal).opacity(0.1), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 14) {
+                        HStack(spacing: 14) {
+                            ZStack {
+                                Circle()
+                                    .fill(LinearGradient(colors: [.blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                    .frame(width: 62, height: 62)
+                                Image(systemName: "person.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.white)
+                            }
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(session.email ?? "Pengguna")
+                                    .font(.headline)
+                                Text("Belajar Bahasa Indonesia")
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Label("Status Akun: Login", systemImage: "checkmark.seal.fill")
+                                .foregroundStyle(.green)
+                                .font(.subheadline.weight(.semibold))
+                            Text("Token auth tersimpan lokal, dan akan dipakai otomatis untuk request backend.")
+                                .font(.footnote)
                                 .foregroundStyle(.secondary)
                         }
-                    }
-                    .padding(.vertical, 4)
-                }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
 
-                Section("Session") {
-                    Text("Status: Login")
-                    Text("Token tersimpan di perangkat.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        showLogoutAlert = true
-                    } label: {
-                        Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                        Button(role: .destructive) {
+                            showLogoutAlert = true
+                        } label: {
+                            Label("Logout", systemImage: "rectangle.portrait.and.arrow.right")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
                     }
+                    .padding()
                 }
             }
             .navigationTitle("Profile")

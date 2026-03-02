@@ -4,7 +4,6 @@
 //
 //  Created by Oka on 2026/3/2.
 //
-
 import SwiftUI
 
 struct HomeTabView: View {
@@ -12,55 +11,77 @@ struct HomeTabView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
-                    ZStack(alignment: .bottomLeading) {
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(
-                                LinearGradient(
-                                    colors: [.blue, .cyan],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
+            ZStack {
+                LinearGradient(
+                    colors: [Color(.systemIndigo).opacity(0.18), Color(.systemBlue).opacity(0.08), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ZStack(alignment: .bottomLeading) {
+                            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [.indigo, .blue, .cyan],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
                                 )
-                            )
-                            .frame(height: 170)
+                                .frame(height: 190)
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Belajar Bahasa Indonesia")
-                                .font(.title2.bold())
-                                .foregroundStyle(.white)
-                            Text("Mulai dari course dasar sampai mahir.")
-                                .foregroundStyle(.white.opacity(0.9))
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Belajar Bahasa Indonesia")
+                                    .font(.title2.bold())
+                                    .foregroundStyle(.white)
+                                Text("Sesi hari ini: kosakata, grammar, dan listening ringan.")
+                                    .foregroundStyle(.white.opacity(0.9))
+                                Label("Daily Streak 7 hari", systemImage: "flame.fill")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.orange)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(.white, in: Capsule())
+                            }
+                            .padding(20)
                         }
-                        .padding(20)
-                    }
+                        .shadow(color: .indigo.opacity(0.2), radius: 14, x: 0, y: 8)
 
-                    HStack(spacing: 12) {
-                        SummaryCard(
-                            title: "Total Course",
-                            value: "\(viewModel.courses.count)",
-                            icon: "books.vertical.fill",
-                            tint: .indigo
-                        )
-                        SummaryCard(
-                            title: "Status Data",
-                            value: viewModel.isLoading ? "Loading" : "Ready",
-                            icon: "bolt.fill",
-                            tint: .green
-                        )
-                    }
+                        HStack(spacing: 12) {
+                            SummaryCard(
+                                title: "Total Course",
+                                value: "\(viewModel.courses.count)",
+                                icon: "books.vertical.fill",
+                                tint: .indigo
+                            )
+                            SummaryCard(
+                                title: "Status Data",
+                                value: viewModel.isLoading ? "Loading" : "Ready",
+                                icon: "bolt.fill",
+                                tint: .green
+                            )
+                        }
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Lanjut Belajar")
-                            .font(.headline)
-                        Text("Buka tab Courses untuk tambah, edit, dan kelola semua materi course.")
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                Text("Rekomendasi Hari Ini")
+                                    .font(.headline)
+                                Spacer()
+                                Text("Personalized")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.blue)
+                            }
+                            Text("Buka tab Courses untuk tambah, edit, dan kelola semua materi belajarmu.")
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
                 }
-                .padding()
             }
             .navigationTitle("Home")
             .task {
