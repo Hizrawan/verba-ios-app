@@ -83,6 +83,14 @@ struct FlashcardItem: Codable, Identifiable, Equatable {
             ?? container.decode(String.self, forKey: .back)
         cardOrder = try container.decodeIfPresent(Int.self, forKey: .cardOrder)
     }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(front, forKey: .frontText)
+        try container.encode(back, forKey: .backText)
+        try container.encodeIfPresent(cardOrder, forKey: .cardOrder)
+    }
 }
 
 struct ChoiceItem: Codable, Identifiable, Equatable {
@@ -109,6 +117,13 @@ struct ChoiceItem: Codable, Identifiable, Equatable {
         text = try container.decodeIfPresent(String.self, forKey: .optionText)
             ?? container.decode(String.self, forKey: .text)
         isCorrect = try container.decodeIfPresent(Bool.self, forKey: .isCorrect)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(text, forKey: .optionText)
+        try container.encodeIfPresent(isCorrect, forKey: .isCorrect)
     }
 }
 
