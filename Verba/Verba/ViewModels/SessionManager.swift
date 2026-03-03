@@ -307,7 +307,7 @@ final class SessionManager: ObservableObject {
 
     private func resolveBearerToken(forceRefresh: Bool = false) async throws -> String {
         if let currentUser = Auth.auth().currentUser {
-            let freshToken = try await currentUser.getIDTokenForcingRefresh(forceRefresh)
+            let freshToken = try await fetchIDToken(from: currentUser, forceRefresh: forceRefresh)
             token = freshToken
             UserDefaults.standard.set(freshToken, forKey: tokenKey)
             return freshToken
@@ -326,6 +326,20 @@ final class SessionManager: ObservableObject {
             _ = try await apiService.recordWrongAnswersBulk(bulkItems, bearerToken: bearerToken)
         } catch {
             // Do not fail lesson completion if wrong-answer review endpoint fails.
+        }
+    }
+
+    private func fetchIDToken(from user: User, forceRefresh: Bool) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            user.getIDTokenForcingRefresh(forceRefresh) { token, error in
+                if let token {
+                    continuation.resume(returning: token)
+                } else if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(throwing: APIError.invalidResponse)
+                }
+            }
         }
     }
 }
