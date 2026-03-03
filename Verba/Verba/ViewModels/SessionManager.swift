@@ -99,8 +99,10 @@ final class SessionManager: ObservableObject {
     private let tokenKey = "verba.auth.token"
     private let emailKey = "verba.auth.email"
     private let lessonProgressKey = "verba.lesson.progress"
+    private let apiService: APIService
 
-    init() {
+    init(apiService: APIService? = nil) {
+        self.apiService = apiService ?? APIService()
         token = UserDefaults.standard.string(forKey: tokenKey)
         email = UserDefaults.standard.string(forKey: emailKey)
         lessonCompletions = Self.loadLessonCompletions(from: lessonProgressKey)
@@ -111,6 +113,7 @@ final class SessionManager: ObservableObject {
         self.email = email
         UserDefaults.standard.set(token, forKey: tokenKey)
         UserDefaults.standard.set(email, forKey: emailKey)
+        Task { await refreshProgressFromServer() }
     }
 
     func logout() {
@@ -121,8 +124,10 @@ final class SessionManager: ObservableObject {
         }
         token = nil
         email = nil
+        lessonCompletions = [:]
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.removeObject(forKey: emailKey)
+        UserDefaults.standard.removeObject(forKey: lessonProgressKey)
     }
 
     @discardableResult
@@ -133,19 +138,82 @@ final class SessionManager: ObservableObject {
         wrongAnswers: Int,
         totalQuestions: Int,
         wrongItems: [WrongAnswerItem]
-    ) -> Int {
+    ) async throws -> Int {
+        guard let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw APIError.missingBearerToken
+        }
+
+        let normalizedWrong = max(0, wrongAnswers)
+        let normalizedTotal = max(0, totalQuestions)
+        let gainedExp = Self.exp(forWrongCount: normalizedWrong, totalQuestions: normalizedTotal)
+        let completedAtDate = Date()
+        let completedAt = ISO8601DateFormatter().string(from: completedAtDate)
+        let bulkItems = wrongItems.map {
+            WrongAnswerBulkItem(
+                lessonId: $0.lessonId,
+                courseId: $0.courseId,
+                lessonTitle: $0.lessonTitle,
+                prompt: $0.prompt,
+                userAnswer: $0.userAnswer,
+                correctAnswer: $0.correctAnswer,
+                recordedAt: ISO8601DateFormatter().string(from: $0.recordedAt)
+            )
+        }
+
+        let syncPayload = ProgressSyncRequest(
+            lessonId: lessonId,
+            courseId: courseId,
+            completed: true,
+            score: max(0, normalizedTotal - normalizedWrong),
+            wrongCount: normalizedWrong,
+            xpGained: gainedExp,
+            completedAt: completedAt,
+            wrongAnswers: bulkItems
+        )
+
+        _ = try await apiService.syncProgress(syncPayload, bearerToken: token)
+        if !bulkItems.isEmpty {
+            _ = try await apiService.recordWrongAnswersBulk(bulkItems, bearerToken: token)
+        }
+
         lessonCompletions[lessonId] = LessonCompletion(
             lessonId: lessonId,
             courseId: courseId,
             lessonTitle: lessonTitle,
-            wrongAnswers: max(0, wrongAnswers),
-            totalQuestions: max(0, totalQuestions),
-            completedAt: Date(),
+            wrongAnswers: normalizedWrong,
+            totalQuestions: normalizedTotal,
+            completedAt: completedAtDate,
             wrongItems: wrongItems
         )
         saveLessonCompletions()
-        guard let completion = lessonCompletions[lessonId] else { return 0 }
-        return Self.exp(for: completion)
+        return gainedExp
+    }
+
+    func refreshProgressFromServer() async {
+        guard let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        do {
+            let history = try await apiService.fetchProgressHistory(bearerToken: token)
+            var rebuilt: [Int: LessonCompletion] = [:]
+            for item in history {
+                let existing = rebuilt[item.lessonId]
+                let completion = LessonCompletion(
+                    lessonId: item.lessonId,
+                    courseId: item.courseId,
+                    lessonTitle: existing?.lessonTitle ?? "Lesson \(item.lessonId)",
+                    wrongAnswers: max(item.wrongCount, existing?.wrongAnswers ?? 0),
+                    totalQuestions: max(item.score + item.wrongCount, existing?.totalQuestions ?? 0),
+                    completedAt: Self.parseDate(item.completedAt) ?? Date(),
+                    wrongItems: existing?.wrongItems ?? []
+                )
+                rebuilt[item.lessonId] = completion
+            }
+            if !rebuilt.isEmpty {
+                lessonCompletions = rebuilt
+                saveLessonCompletions()
+            }
+        } catch {
+            // Keep using local snapshot when network fails.
+        }
     }
 
     func isLessonCompleted(_ lessonId: Int) -> Bool {
@@ -198,5 +266,23 @@ final class SessionManager: ObservableObject {
         let baseExp = 20
         let bonusExp = Int(round(accuracy * 30))
         return baseExp + bonusExp
+    }
+
+    private static func exp(forWrongCount wrongCount: Int, totalQuestions: Int) -> Int {
+        let completion = LessonCompletion(
+            lessonId: 0,
+            courseId: 0,
+            lessonTitle: "",
+            wrongAnswers: max(0, wrongCount),
+            totalQuestions: max(0, totalQuestions),
+            completedAt: Date(),
+            wrongItems: []
+        )
+        return exp(for: completion)
+    }
+
+    private static func parseDate(_ raw: String?) -> Date? {
+        guard let raw else { return nil }
+        return ISO8601DateFormatter().date(from: raw)
     }
 }

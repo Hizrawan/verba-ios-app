@@ -76,6 +76,58 @@ final class APIService {
         try validate(response: response)
     }
 
+    func fetchCourseProgressSummary(courseId: Int, bearerToken: String) async throws -> CourseProgressSummary {
+        let cleanedToken = bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedToken.isEmpty else { throw APIError.missingBearerToken }
+        var request = URLRequest(url: baseURL.appending(path: "progress/course/\(courseId)"))
+        request.setValue("Bearer \(cleanedToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode(CourseProgressSummary.self, from: data)
+    }
+
+    func fetchProgressHistory(bearerToken: String) async throws -> [ProgressHistoryItem] {
+        let cleanedToken = bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedToken.isEmpty else { throw APIError.missingBearerToken }
+        var request = URLRequest(url: baseURL.appending(path: "progress/history"))
+        request.setValue("Bearer \(cleanedToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode([ProgressHistoryItem].self, from: data)
+    }
+
+    func syncProgress(_ payload: ProgressSyncRequest, bearerToken: String) async throws -> ProgressRecord {
+        let cleanedToken = bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedToken.isEmpty else { throw APIError.missingBearerToken }
+
+        var request = URLRequest(url: baseURL.appending(path: "progress/sync"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(cleanedToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode(ProgressRecord.self, from: data)
+    }
+
+    func recordWrongAnswersBulk(_ payload: [WrongAnswerBulkItem], bearerToken: String) async throws -> WrongAnswerBulkResponse {
+        let cleanedToken = bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanedToken.isEmpty else { throw APIError.missingBearerToken }
+
+        var request = URLRequest(url: baseURL.appending(path: "progress/wrong-answers/bulk"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(cleanedToken)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONEncoder().encode(payload)
+
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode(WrongAnswerBulkResponse.self, from: data)
+    }
+
     private func validate(response: URLResponse) throws {
         guard let http = response as? HTTPURLResponse else {
             throw APIError.invalidResponse

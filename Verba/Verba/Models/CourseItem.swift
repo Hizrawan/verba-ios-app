@@ -56,11 +56,60 @@ struct FlashcardItem: Codable, Identifiable, Equatable {
     let id: Int
     let front: String
     let back: String
+    let cardOrder: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case front
+        case back
+        case frontText = "front_text"
+        case backText = "back_text"
+        case cardOrder = "card_order"
+    }
+
+    init(id: Int, front: String, back: String, cardOrder: Int? = nil) {
+        self.id = id
+        self.front = front
+        self.back = back
+        self.cardOrder = cardOrder
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        front = try container.decodeIfPresent(String.self, forKey: .frontText)
+            ?? container.decode(String.self, forKey: .front)
+        back = try container.decodeIfPresent(String.self, forKey: .backText)
+            ?? container.decode(String.self, forKey: .back)
+        cardOrder = try container.decodeIfPresent(Int.self, forKey: .cardOrder)
+    }
 }
 
 struct ChoiceItem: Codable, Identifiable, Equatable {
     let id: Int
     let text: String
+    let isCorrect: Bool?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case text
+        case optionText = "option_text"
+        case isCorrect = "is_correct"
+    }
+
+    init(id: Int, text: String, isCorrect: Bool? = nil) {
+        self.id = id
+        self.text = text
+        self.isCorrect = isCorrect
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        text = try container.decodeIfPresent(String.self, forKey: .optionText)
+            ?? container.decode(String.self, forKey: .text)
+        isCorrect = try container.decodeIfPresent(Bool.self, forKey: .isCorrect)
+    }
 }
 
 struct QuizQuestion: Codable, Identifiable, Equatable {
@@ -69,6 +118,7 @@ struct QuizQuestion: Codable, Identifiable, Equatable {
     let options: [ChoiceItem]
     let correctOptionId: Int?
     let explanation: String?
+    let questionOrder: Int?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -76,6 +126,38 @@ struct QuizQuestion: Codable, Identifiable, Equatable {
         case options
         case correctOptionId = "correct_option_id"
         case explanation
+        case questionOrder = "question_order"
+    }
+
+    init(
+        id: Int,
+        prompt: String,
+        options: [ChoiceItem],
+        correctOptionId: Int?,
+        explanation: String?,
+        questionOrder: Int? = nil
+    ) {
+        self.id = id
+        self.prompt = prompt
+        self.options = options
+        self.correctOptionId = correctOptionId
+        self.explanation = explanation
+        self.questionOrder = questionOrder
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        prompt = try container.decode(String.self, forKey: .prompt)
+        options = try container.decodeIfPresent([ChoiceItem].self, forKey: .options) ?? []
+        let explicitCorrect = try container.decodeIfPresent(Int.self, forKey: .correctOptionId)
+        if let explicitCorrect {
+            correctOptionId = explicitCorrect
+        } else {
+            correctOptionId = options.first(where: { $0.isCorrect == true })?.id
+        }
+        explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
+        questionOrder = try container.decodeIfPresent(Int.self, forKey: .questionOrder)
     }
 }
 
@@ -91,7 +173,7 @@ struct Lesson: Codable, Identifiable, Equatable {
     let options: [ChoiceItem]?
     let correctOptionId: Int?
     let explanation: String?
-    let order: Int?
+    let lessonOrder: Int?
     let createdAt: String?
     let updatedAt: String?
 
@@ -107,7 +189,7 @@ struct Lesson: Codable, Identifiable, Equatable {
         case options
         case correctOptionId = "correct_option_id"
         case explanation
-        case order
+        case lessonOrder = "lesson_order"
         case createdAt
         case updatedAt
     }
@@ -124,7 +206,7 @@ struct Lesson: Codable, Identifiable, Equatable {
         options: [ChoiceItem]? = nil,
         correctOptionId: Int? = nil,
         explanation: String? = nil,
-        order: Int? = nil,
+        lessonOrder: Int? = nil,
         createdAt: String? = nil,
         updatedAt: String? = nil
     ) {
@@ -139,7 +221,7 @@ struct Lesson: Codable, Identifiable, Equatable {
         self.options = options
         self.correctOptionId = correctOptionId
         self.explanation = explanation
-        self.order = order
+        self.lessonOrder = lessonOrder
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -160,7 +242,7 @@ struct Lesson: Codable, Identifiable, Equatable {
         options = try container.decodeIfPresent([ChoiceItem].self, forKey: .options)
         correctOptionId = try container.decodeIfPresent(Int.self, forKey: .correctOptionId)
         explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
-        order = try container.decodeIfPresent(Int.self, forKey: .order)
+        lessonOrder = try container.decodeIfPresent(Int.self, forKey: .lessonOrder)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }

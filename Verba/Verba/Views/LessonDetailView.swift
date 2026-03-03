@@ -13,6 +13,7 @@ struct LessonDetailView: View {
     @State private var pageEvaluations: [String: AnswerEvaluation] = [:]
     @State private var showCompletionAlert = false
     @State private var expGained = 0
+    @State private var submitErrorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -39,6 +40,14 @@ struct LessonDetailView: View {
             Button("Kembali") { dismiss() }
         } message: {
             Text("Kamu menyelesaikan lesson dengan \(wrongAnswersCount) jawaban salah dan mendapat +\(expGained) EXP.")
+        }
+        .alert("Gagal Simpan Progress", isPresented: Binding(
+            get: { submitErrorMessage != nil },
+            set: { if !$0 { submitErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(submitErrorMessage ?? "Terjadi kesalahan.")
         }
     }
 
@@ -261,15 +270,21 @@ struct LessonDetailView: View {
                 )
             }
 
-        expGained = session.completeLesson(
-            lessonId: lesson.id,
-            courseId: lesson.course_id,
-            lessonTitle: lesson.title,
-            wrongAnswers: wrongAnswersCount,
-            totalQuestions: totalQuestionCount,
-            wrongItems: wrongItems
-        )
-        showCompletionAlert = true
+        Task {
+            do {
+                expGained = try await session.completeLesson(
+                    lessonId: lesson.id,
+                    courseId: lesson.course_id,
+                    lessonTitle: lesson.title,
+                    wrongAnswers: wrongAnswersCount,
+                    totalQuestions: totalQuestionCount,
+                    wrongItems: wrongItems
+                )
+                showCompletionAlert = true
+            } catch {
+                submitErrorMessage = error.localizedDescription
+            }
+        }
     }
 }
 

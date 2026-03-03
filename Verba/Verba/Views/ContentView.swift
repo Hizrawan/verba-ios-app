@@ -55,6 +55,9 @@ struct ContentView: View {
                 .tag(2)
         }
         .environmentObject(session)
+        .task {
+            await session.refreshProgressFromServer()
+        }
         .sheet(isPresented: $showAddSheet) {
             CourseFormView(mode: .add) { course in
                 guard let course else { return }
