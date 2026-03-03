@@ -40,13 +40,13 @@ struct ProgressHistoryItem: Codable, Equatable, Identifiable {
 
 struct ProgressSyncRequest: Codable, Equatable {
     let lessonId: Int
-    let courseId: Int
-    let completed: Bool
-    let score: Int
-    let wrongCount: Int
-    let xpGained: Int
-    let completedAt: String
-    let wrongAnswers: [WrongAnswerBulkItem]
+    let courseId: Int?
+    let completed: Bool?
+    let score: Int?
+    let wrongCount: Int?
+    let xpGained: Int?
+    let completedAt: String?
+    let wrongAnswers: [WrongAnswerBulkItem]?
 
     enum CodingKeys: String, CodingKey {
         case lessonId = "lesson_id"

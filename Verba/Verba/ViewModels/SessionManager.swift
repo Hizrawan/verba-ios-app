@@ -139,10 +139,6 @@ final class SessionManager: ObservableObject {
         totalQuestions: Int,
         wrongItems: [WrongAnswerItem]
     ) async throws -> Int {
-        guard let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw APIError.missingBearerToken
-        }
-
         let normalizedWrong = max(0, wrongAnswers)
         let normalizedTotal = max(0, totalQuestions)
         let gainedExp = Self.exp(forWrongCount: normalizedWrong, totalQuestions: normalizedTotal)
@@ -166,14 +162,31 @@ final class SessionManager: ObservableObject {
             completed: true,
             score: max(0, normalizedTotal - normalizedWrong),
             wrongCount: normalizedWrong,
-            xpGained: gainedExp,
+            xpGained: nil,
             completedAt: completedAt,
-            wrongAnswers: bulkItems
+            wrongAnswers: nil
         )
-
-        _ = try await apiService.syncProgress(syncPayload, bearerToken: token)
-        if !bulkItems.isEmpty {
-            _ = try await apiService.recordWrongAnswersBulk(bulkItems, bearerToken: token)
+        let bearerToken = try await resolveBearerToken()
+        do {
+            _ = try await apiService.syncProgress(syncPayload, bearerToken: bearerToken)
+            try await postWrongAnswersIfPossible(bulkItems, bearerToken: bearerToken)
+        } catch let APIError.serverError(statusCode) where statusCode == 500 {
+            let fallbackPayload = ProgressSyncRequest(
+                lessonId: lessonId,
+                courseId: nil,
+                completed: true,
+                score: nil,
+                wrongCount: normalizedWrong,
+                xpGained: nil,
+                completedAt: nil,
+                wrongAnswers: nil
+            )
+            _ = try await apiService.syncProgress(fallbackPayload, bearerToken: bearerToken)
+            try await postWrongAnswersIfPossible(bulkItems, bearerToken: bearerToken)
+        } catch let APIError.serverError(statusCode) where statusCode == 401 {
+            let refreshedToken = try await resolveBearerToken(forceRefresh: true)
+            _ = try await apiService.syncProgress(syncPayload, bearerToken: refreshedToken)
+            try await postWrongAnswersIfPossible(bulkItems, bearerToken: refreshedToken)
         }
 
         lessonCompletions[lessonId] = LessonCompletion(
@@ -190,9 +203,15 @@ final class SessionManager: ObservableObject {
     }
 
     func refreshProgressFromServer() async {
-        guard let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         do {
-            let history = try await apiService.fetchProgressHistory(bearerToken: token)
+            let bearerToken = try await resolveBearerToken()
+            let history: [ProgressHistoryItem]
+            do {
+                history = try await apiService.fetchProgressHistory(bearerToken: bearerToken)
+            } catch let APIError.serverError(statusCode) where statusCode == 401 {
+                let refreshedToken = try await resolveBearerToken(forceRefresh: true)
+                history = try await apiService.fetchProgressHistory(bearerToken: refreshedToken)
+            }
             var rebuilt: [Int: LessonCompletion] = [:]
             for item in history {
                 let existing = rebuilt[item.lessonId]
@@ -284,5 +303,29 @@ final class SessionManager: ObservableObject {
     private static func parseDate(_ raw: String?) -> Date? {
         guard let raw else { return nil }
         return ISO8601DateFormatter().date(from: raw)
+    }
+
+    private func resolveBearerToken(forceRefresh: Bool = false) async throws -> String {
+        if let currentUser = Auth.auth().currentUser {
+            let freshToken = try await currentUser.getIDTokenForcingRefresh(forceRefresh)
+            token = freshToken
+            UserDefaults.standard.set(freshToken, forKey: tokenKey)
+            return freshToken
+        }
+
+        if let token, !token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return token
+        }
+
+        throw APIError.missingBearerToken
+    }
+
+    private func postWrongAnswersIfPossible(_ bulkItems: [WrongAnswerBulkItem], bearerToken: String) async throws {
+        guard !bulkItems.isEmpty else { return }
+        do {
+            _ = try await apiService.recordWrongAnswersBulk(bulkItems, bearerToken: bearerToken)
+        } catch {
+            // Do not fail lesson completion if wrong-answer review endpoint fails.
+        }
     }
 }
