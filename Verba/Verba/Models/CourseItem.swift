@@ -76,12 +76,12 @@ struct FlashcardItem: Codable, Identifiable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        id = try container.decodeLossyInt(forKey: .id)
         front = try container.decodeIfPresent(String.self, forKey: .frontText)
             ?? container.decode(String.self, forKey: .front)
         back = try container.decodeIfPresent(String.self, forKey: .backText)
             ?? container.decode(String.self, forKey: .back)
-        cardOrder = try container.decodeIfPresent(Int.self, forKey: .cardOrder)
+        cardOrder = try container.decodeLossyIntIfPresent(forKey: .cardOrder)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -113,7 +113,7 @@ struct ChoiceItem: Codable, Identifiable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        id = try container.decodeLossyInt(forKey: .id)
         text = try container.decodeIfPresent(String.self, forKey: .optionText)
             ?? container.decode(String.self, forKey: .text)
         isCorrect = try container.decodeIfPresent(Bool.self, forKey: .isCorrect)
@@ -162,17 +162,17 @@ struct QuizQuestion: Codable, Identifiable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
+        id = try container.decodeLossyInt(forKey: .id)
         prompt = try container.decode(String.self, forKey: .prompt)
         options = try container.decodeIfPresent([ChoiceItem].self, forKey: .options) ?? []
-        let explicitCorrect = try container.decodeIfPresent(Int.self, forKey: .correctOptionId)
+        let explicitCorrect = try container.decodeLossyIntIfPresent(forKey: .correctOptionId)
         if let explicitCorrect {
             correctOptionId = explicitCorrect
         } else {
             correctOptionId = options.first(where: { $0.isCorrect == true })?.id
         }
         explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
-        questionOrder = try container.decodeIfPresent(Int.self, forKey: .questionOrder)
+        questionOrder = try container.decodeLossyIntIfPresent(forKey: .questionOrder)
     }
 }
 
@@ -243,8 +243,8 @@ struct Lesson: Codable, Identifiable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decode(Int.self, forKey: .id)
-        course_id = try container.decode(Int.self, forKey: .course_id)
+        id = try container.decodeLossyInt(forKey: .id)
+        course_id = try container.decodeLossyInt(forKey: .course_id)
         title = try container.decode(String.self, forKey: .title)
 
         let rawType = try container.decodeIfPresent(String.self, forKey: .type)?.lowercased()
@@ -255,9 +255,9 @@ struct Lesson: Codable, Identifiable, Equatable {
         questions = try container.decodeIfPresent([QuizQuestion].self, forKey: .questions)
         question = try container.decodeIfPresent(String.self, forKey: .question)
         options = try container.decodeIfPresent([ChoiceItem].self, forKey: .options)
-        correctOptionId = try container.decodeIfPresent(Int.self, forKey: .correctOptionId)
+        correctOptionId = try container.decodeLossyIntIfPresent(forKey: .correctOptionId)
         explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
-        lessonOrder = try container.decodeIfPresent(Int.self, forKey: .lessonOrder)
+        lessonOrder = try container.decodeLossyIntIfPresent(forKey: .lessonOrder)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }
@@ -285,5 +285,32 @@ struct Lesson: Codable, Identifiable, Equatable {
                 explanation: explanation
             )
         ]
+    }
+}
+
+private extension KeyedDecodingContainer {
+    func decodeLossyInt(forKey key: Key) throws -> Int {
+        if let intValue = try? decode(Int.self, forKey: key) {
+            return intValue
+        }
+        let stringValue = try decode(String.self, forKey: key)
+        guard let parsed = Int(stringValue) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: self,
+                debugDescription: "Expected Int or numeric String for \(key.stringValue)"
+            )
+        }
+        return parsed
+    }
+
+    func decodeLossyIntIfPresent(forKey key: Key) throws -> Int? {
+        if let intValue = try? decodeIfPresent(Int.self, forKey: key) {
+            return intValue
+        }
+        guard let stringValue = try decodeIfPresent(String.self, forKey: key) else {
+            return nil
+        }
+        return Int(stringValue)
     }
 }
