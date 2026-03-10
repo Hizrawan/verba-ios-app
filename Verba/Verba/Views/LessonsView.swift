@@ -14,12 +14,8 @@ struct LessonsView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color(.systemMint).opacity(0.12), .clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
 
             Group {
                 if viewModel.isLoading && viewModel.lessons.isEmpty {
@@ -76,28 +72,18 @@ struct LessonsView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("Progress Course")
-                    .font(.headline)
-                Spacer()
-                Text("\(completed)/\(viewModel.lessons.count) lesson")
-                    .font(.subheadline.weight(.semibold))
+                Text("\(completed)/\(viewModel.lessons.count) selesai")
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 0)
+                Text("\(session.totalWrongAnswers(for: course.id)) salah")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
-
             ProgressView(value: progress)
                 .tint(.green)
-
-            Text("Total jawaban salah: \(session.totalWrongAnswers(for: course.id))")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.22), lineWidth: 1)
-        )
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 
@@ -107,71 +93,38 @@ private struct StageLessonNodeView: View {
     let totalLessons: Int
     let isCompleted: Bool
 
-    private var xOffset: CGFloat {
-        lessonNumber.isMultiple(of: 2) ? 56 : -56
-    }
-
     var body: some View {
-        VStack(spacing: 0) {
-            NavigationLink {
-                LessonDetailView(
-                    lesson: lesson,
-                    lessonNumber: lessonNumber,
-                    totalLessons: totalLessons
-                )
-            } label: {
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: isCompleted ? [Color.green, Color.mint] : [Color.green, Color.blue],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 66, height: 66)
-                            .shadow(color: .green.opacity(0.3), radius: 10, x: 0, y: 5)
+        NavigationLink {
+            LessonDetailView(
+                lesson: lesson,
+                lessonNumber: lessonNumber,
+                totalLessons: totalLessons
+            )
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: isCompleted ? "checkmark.circle.fill" : lesson.type.iconName)
+                    .font(.system(size: 22))
+                    .foregroundStyle(isCompleted ? .green : .blue)
+                    .frame(width: 44, height: 44)
+                    .background((isCompleted ? Color.green : Color.blue).opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                        Image(systemName: isCompleted ? "checkmark" : lesson.type.iconName)
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(.white)
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Lesson \(lessonNumber)")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text(lesson.title)
-                            .font(.headline)
-                            .lineLimit(2)
-                        Text(lesson.type.title)
-                            .font(.caption.weight(.semibold))
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 4)
-                            .background((isCompleted ? Color.green : Color.blue).opacity(0.12), in: Capsule())
-                            .foregroundStyle(isCompleted ? .green : .blue)
-                    }
-                    Spacer()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(lesson.title)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                    Text(lesson.type.title)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(14)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(.white.opacity(0.24), lineWidth: 1)
-                )
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
-            .buttonStyle(.plain)
-            .offset(x: xOffset)
-
-            if lessonNumber < totalLessons {
-                Rectangle()
-                    .fill(Color.green.opacity(0.3))
-                    .frame(width: 5, height: 36)
-                    .clipShape(Capsule())
-                    .padding(.vertical, 6)
-            }
+            .padding(14)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(.plain)
     }
 }

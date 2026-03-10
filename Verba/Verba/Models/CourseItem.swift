@@ -205,6 +205,7 @@ struct Lesson: Codable, Identifiable, Equatable {
         case correctOptionId = "correct_option_id"
         case explanation
         case lessonOrder = "lesson_order"
+        case order
         case createdAt
         case updatedAt
     }
@@ -258,6 +259,7 @@ struct Lesson: Codable, Identifiable, Equatable {
         correctOptionId = try container.decodeLossyIntIfPresent(forKey: .correctOptionId)
         explanation = try container.decodeIfPresent(String.self, forKey: .explanation)
         lessonOrder = try container.decodeLossyIntIfPresent(forKey: .lessonOrder)
+            ?? container.decodeLossyIntIfPresent(forKey: .order)
         createdAt = try container.decodeIfPresent(String.self, forKey: .createdAt)
         updatedAt = try container.decodeIfPresent(String.self, forKey: .updatedAt)
     }

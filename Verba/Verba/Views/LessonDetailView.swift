@@ -18,22 +18,15 @@ struct LessonDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 16) {
                     headerCard
                     currentPageView
                 }
-                .padding()
+                .padding(16)
             }
             footerNavigation
         }
-        .background(
-            LinearGradient(
-                colors: [Color.green.opacity(0.16), .clear],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-        )
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Lesson \(lessonNumber)")
         .navigationBarTitleDisplayMode(.inline)
         .alert("Lesson Selesai", isPresented: $showCompletionAlert) {
@@ -52,44 +45,33 @@ struct LessonDetailView: View {
     }
 
     private var headerCard: some View {
-        VStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.green, Color.blue],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .frame(width: 90, height: 90)
-                    .shadow(color: .green.opacity(0.35), radius: 12, x: 0, y: 6)
-
+        VStack(spacing: 16) {
+            HStack(spacing: 12) {
                 Image(systemName: lesson.type.iconName)
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(Color.green.gradient, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(lesson.title)
+                        .font(.headline)
+                        .lineLimit(2)
+                    Text(lesson.type.title)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
             }
-
-            Text(lesson.title)
-                .font(.title3.weight(.bold))
-                .multilineTextAlignment(.center)
-
-            Text("\(lesson.type.title) • Stage \(lessonNumber)/\(totalLessons)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
 
             ProgressView(value: Double(currentPageIndex + 1), total: Double(max(pages.count, 1)))
                 .tint(.green)
-                .padding(.top, 4)
-
-            Text("Halaman \(currentPageIndex + 1) dari \(max(pages.count, 1))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text("\(currentPageIndex + 1) / \(max(pages.count, 1))")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 22)
-        .padding(.horizontal, 14)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .padding(16)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     @ViewBuilder
@@ -133,27 +115,45 @@ struct LessonDetailView: View {
     }
 
     private var footerNavigation: some View {
-        HStack(spacing: 12) {
-            Button("Prev") {
+        HStack(spacing: 16) {
+            Button {
                 currentPageIndex = max(0, currentPageIndex - 1)
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 48, height: 48)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
+            .foregroundStyle(currentPageIndex == 0 ? .tertiary : .primary)
             .disabled(currentPageIndex == 0)
 
-            Button(isLastPage ? "Selesai" : "Next") {
+            Spacer(minLength: 0)
+
+            Button {
                 if isLastPage {
                     completeLesson()
                 } else {
                     currentPageIndex = min(pages.count - 1, currentPageIndex + 1)
                 }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(isLastPage ? "Selesai" : "Lanjut")
+                        .font(.subheadline.weight(.semibold))
+                    Image(systemName: isLastPage ? "checkmark" : "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 14)
+                .background(canMoveNext ? Color.green : Color.gray, in: Capsule())
             }
-            .buttonStyle(.borderedProminent)
+            .buttonStyle(.plain)
             .disabled(!canMoveNext)
         }
-        .padding(.horizontal)
-        .padding(.top, 10)
-        .padding(.bottom, 18)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(.regularMaterial)
     }
 
     private var pages: [LessonPage] {
@@ -299,12 +299,11 @@ private struct MaterialPageView: View {
     let text: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Materi", systemImage: "book.fill")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 16) {
             Text(text)
                 .font(.body)
                 .foregroundStyle(.primary)
+                .lineSpacing(6)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -317,30 +316,22 @@ private struct FlashcardPageView: View {
     @State private var isFlipped = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Flashcard \(index)/\(total)", systemImage: "rectangle.on.rectangle")
-                .font(.headline)
-            Text("Tap kartu untuk flip.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 16) {
+            Text("\(index)/\(total)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
 
-            VStack(spacing: 10) {
-                Text(isFlipped ? card.back : card.front)
-                    .font(.title3.weight(.bold))
-                    .multilineTextAlignment(.center)
-                    .foregroundStyle(isFlipped ? .green : .primary)
-                    .padding()
-            }
-            .frame(maxWidth: .infinity, minHeight: 220)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(isFlipped ? Color.green.opacity(0.14) : Color.blue.opacity(0.12))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(isFlipped ? Color.green.opacity(0.35) : Color.blue.opacity(0.28), lineWidth: 1)
-            )
-            .onTapGesture { isFlipped.toggle() }
+            Text(isFlipped ? card.back : card.front)
+                .font(.title3.weight(.medium))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(isFlipped ? Color.green : .primary)
+                .frame(maxWidth: .infinity, minHeight: 200)
+                .background(Color(.tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .onTapGesture { isFlipped.toggle() }
+
+            Text("Ketuk kartu untuk balik")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
         }
     }
 }
@@ -355,41 +346,47 @@ private struct MatchingPageView: View {
     @Binding var pageEvaluations: [String: AnswerEvaluation]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Cocokkan Arti", systemImage: "arrow.left.arrow.right.circle.fill")
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Arti dari: \(prompt)")
                 .font(.headline)
-            Text("Arti dari: **\(prompt)**")
-                .font(.title3.weight(.semibold))
 
-            ForEach(options) { option in
-                Button {
-                    selectedAnswers[pageId] = option.id
-                } label: {
-                    HStack {
-                        Text(option.text)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if selectedAnswers[pageId] == option.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.blue)
+            VStack(spacing: 10) {
+                ForEach(options) { option in
+                    Button {
+                        selectedAnswers[pageId] = option.id
+                    } label: {
+                        HStack {
+                            Text(option.text)
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                            Spacer()
+                            if selectedAnswers[pageId] == option.id {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.body)
+                                    .foregroundStyle(.green)
+                            }
                         }
+                        .padding(14)
+                        .background(optionBackground(for: option.id), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 14)
-                    .background(optionBackground(for: option.id), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
-            Button("Cek Jawaban") { checkAnswer() }
-                .buttonStyle(.borderedProminent)
-                .disabled(selectedAnswers[pageId] == nil || options.isEmpty)
+            Button { checkAnswer() } label: {
+                Text("Cek Jawaban")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(selectedAnswers[pageId] == nil || options.isEmpty)
 
-            if checkedPages.contains(pageId),
-               let selectedId = selectedAnswers[pageId] {
+            if checkedPages.contains(pageId), let selectedId = selectedAnswers[pageId] {
                 let isCorrect = selectedId == correctOptionId
-                Text(isCorrect ? "Benar! 🎉" : "Belum tepat, coba lagi ya.")
-                    .font(.headline)
+                Text(isCorrect ? "Benar" : "Belum tepat")
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(isCorrect ? .green : .orange)
             }
         }
@@ -397,9 +394,9 @@ private struct MatchingPageView: View {
 
     private func optionBackground(for optionId: Int) -> Color {
         guard selectedAnswers[pageId] == optionId else {
-            return Color(.secondarySystemBackground)
+            return Color(.tertiarySystemGroupedBackground)
         }
-        return Color.blue.opacity(0.14)
+        return Color.green.opacity(0.12)
     }
 
     private func checkAnswer() {
@@ -427,49 +424,61 @@ private struct MultipleChoicePageView: View {
     @Binding var pageEvaluations: [String: AnswerEvaluation]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Multiple Choice \(index)/\(total)", systemImage: "checkmark.circle.fill")
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 16) {
+            Text("\(index)/\(total)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
 
             Text(question.prompt)
-                .font(.title3.weight(.semibold))
+                .font(.headline)
 
-            ForEach(question.options) { option in
-                Button {
-                    selectedAnswers[pageId] = option.id
-                } label: {
-                    HStack {
-                        Text(option.text)
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        if selectedAnswers[pageId] == option.id {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.blue)
+            VStack(spacing: 10) {
+                ForEach(question.options) { option in
+                    Button {
+                        selectedAnswers[pageId] = option.id
+                    } label: {
+                        HStack {
+                            Text(option.text)
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                            Spacer()
+                            if selectedAnswers[pageId] == option.id {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.body)
+                                    .foregroundStyle(.green)
+                            }
                         }
+                        .padding(14)
+                        .background(optionBackground(for: option.id), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 14)
-                    .background(optionBackground(for: option.id), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
-            Button("Cek Jawaban") { checkAnswer() }
-                .buttonStyle(.borderedProminent)
-                .disabled(selectedAnswers[pageId] == nil || question.options.isEmpty)
+            Button { checkAnswer() } label: {
+                Text("Cek Jawaban")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(selectedAnswers[pageId] == nil || question.options.isEmpty)
 
             if checkedPages.contains(pageId),
                let selectedId = selectedAnswers[pageId],
                let correctOptionId = question.correctOptionId {
                 let isCorrect = selectedId == correctOptionId
-                Text(isCorrect ? "Benar! 🎉" : "Belum tepat, coba lagi ya.")
-                    .font(.headline)
-                    .foregroundStyle(isCorrect ? .green : .orange)
-
-                if let explanation = question.explanation,
-                   !explanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text(explanation)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(isCorrect ? "Benar" : "Belum tepat")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(isCorrect ? .green : .orange)
+                    if let explanation = question.explanation,
+                       !explanation.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(explanation)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }
@@ -477,9 +486,9 @@ private struct MultipleChoicePageView: View {
 
     private func optionBackground(for optionId: Int) -> Color {
         guard selectedAnswers[pageId] == optionId else {
-            return Color(.secondarySystemBackground)
+            return Color(.tertiarySystemGroupedBackground)
         }
-        return Color.blue.opacity(0.14)
+        return Color.green.opacity(0.12)
     }
 
     private func checkAnswer() {
@@ -511,12 +520,8 @@ private extension View {
     var lessonContentStyle: some View {
         self
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(.white.opacity(0.22), lineWidth: 1)
-            )
+            .padding(20)
+            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

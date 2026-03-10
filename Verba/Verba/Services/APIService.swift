@@ -23,11 +23,25 @@ final class APIService {
         return try decode([Course].self, from: data)
     }
 
+    func fetchLesson(id: Int) async throws -> Lesson {
+        let request = URLRequest(url: baseURL.appending(path: "lessons/\(id)"))
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode(Lesson.self, from: data)
+    }
+
     func fetchLessons(courseId: Int) async throws -> [Lesson] {
         let request = URLRequest(url: baseURL.appending(path: "lessons/course/\(courseId)"))
         let (data, response) = try await session.data(for: request)
         try validate(response: response)
         return try decode([Lesson].self, from: data)
+    }
+
+    func fetchCourse(id: Int) async throws -> Course {
+        let request = URLRequest(url: baseURL.appending(path: "courses/\(id)"))
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode(Course.self, from: data)
     }
 
     func createCourse(title: String, description: String?, bearerToken: String) async throws -> Course {
@@ -98,6 +112,14 @@ final class APIService {
         return try decode([ProgressHistoryItem].self, from: data)
     }
 
+    /// Semua progress user dari database (GET /progress/user/{userId}).
+    func fetchProgressByUser(userId: Int) async throws -> [ProgressRecord] {
+        let request = URLRequest(url: baseURL.appending(path: "progress/user/\(userId)"))
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode([ProgressRecord].self, from: data)
+    }
+
     func syncProgress(_ payload: ProgressSyncRequest, bearerToken: String) async throws -> ProgressRecord {
         let cleanedToken = bearerToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !cleanedToken.isEmpty else { throw APIError.missingBearerToken }
@@ -126,6 +148,29 @@ final class APIService {
         let (data, response) = try await session.data(for: request)
         try validate(response: response)
         return try decode(WrongAnswerBulkResponse.self, from: data)
+    }
+
+    // MARK: - Exams (semua data dari database)
+    func fetchExams() async throws -> [Exam] {
+        let request = URLRequest(url: baseURL.appending(path: "exams"))
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode([Exam].self, from: data)
+    }
+
+    func fetchExam(id: Int) async throws -> Exam {
+        let request = URLRequest(url: baseURL.appending(path: "exams/\(id)"))
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode(Exam.self, from: data)
+    }
+
+    // MARK: - Rewards (semua data dari database)
+    func fetchRewards(userId: Int) async throws -> [Reward] {
+        let request = URLRequest(url: baseURL.appending(path: "rewards/user/\(userId)"))
+        let (data, response) = try await session.data(for: request)
+        try validate(response: response)
+        return try decode([Reward].self, from: data)
     }
 
     private func validate(response: URLResponse) throws {
